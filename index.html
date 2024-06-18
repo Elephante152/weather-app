@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habitat: The Best Damn Weather Service</title>
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/css/aos.css">
+    <link rel="stylesheet" href="assets/css/line-awesome.min.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <button id="listBusinessButton">List your business for free</button>
+    <div class="intake-form" id="intakeForm">
+        <h4>Promote Your Business</h4>
+        <form id="businessForm">
+            <div class="form-group">
+                <label for="businessName">Business Name</label>
+                <input type="text" class="form-control" id="businessName" required>
+            </div>
+            <div class="form-group">
+                <label for="city">City</label>
+                <input type="text" class="form-control" id="city" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" class="form-control" id="email" required>
+            </div>
+            <div class="form-group">
+                <label for="website">Website</label>
+                <input type="url" class="form-control" id="website">
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="search">
+                <input type="text" placeholder="Search for a city" spellcheck="false">
+                <button><i class="lab la-searchengin"></i></button> 
+                <ul class="suggestions"></ul>
+            </div>
+            <div class="weather">
+                <i class="la la-cloud la-5x"></i>
+                <h1 class="temp"></h1>
+                <h2 class="city"></h2>
+                <div class="details">
+                    <div class="col">
+                        <i class="la la-tint la-2x"></i>
+                        <p class="humidity"></p>
+                        <p>Humidity</p>
+                    </div>
+                    <div class="col">
+                        <i class="la la-wind la-2x"></i>
+                        <p class="wind"></p>
+                        <p>Wind Speed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="forecast" id="forecast">
+            <h4 class="forecast-title">5-Day Forecast</h4>
+            <div id="forecastDays"></div>
+        </div>
+    </div>
+
+    <div class="business-list-wrapper">
+        <div class="business-list" id="businessList">
+            <!-- Business cards will be added here dynamically -->
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>powered by <a href="https://shaunsaini.com/">L'Atelier</a></p>
+    </div>
+
+    <script>
+        const apiKey = "22b7b7ccb7bfcf1c5f472de875640990";
+        const apiUrl = "https://api.openweathermap.org/data/2.5/weather?units=metric&q=";
+        const forecastApiUrl = "https://api.openweathermap.org/data/2.5/forecast?units=metric&q=";
+        const citiesApiUrl = "https://api.openweathermap.org/data/2.5/find?cnt=5&appid=" + apiKey + "&q=";
+
+        const searchBox = document.querySelector('.search input');
+        const searchButton = document.querySelector('.search button');
+        const suggestions = document.querySelector('.suggestions');
+        const weatherIcon = document.querySelector('.weather i');
+        const weatherSection = document.querySelector('.weather');
+        const detailsSection = document.querySelector('.details');
+        const forecastSection = document.getElementById('forecast');
+        const forecastDays = document.getElementById('forecastDays');
+        const businessList = document.getElementById('businessList');
+        const intakeForm = document.getElementById('intakeForm');
+        const listBusinessButton = document.getElementById('listBusinessButton');
+
+        let businessData = [];
+
+        async function checkWeather(city) {
+            const response = await fetch(apiUrl + city + `&appid=${apiKey}`);
+            const data = await response.json();
+
+            if (data.cod == "404") {
+                alert("City not found");
+                return;
+            }
+
+            document.querySelector('.city').innerHTML = data.name;
+            document.querySelector('.temp').innerHTML = Math.round(data.main.temp) + "°C";
+            document.querySelector('.humidity').innerHTML = data.main.humidity + "%";
+            document.querySelector('.wind').innerHTML = data.wind.speed + "Km/h";
+
+            switch (data.weather[0].main) {
+                case "Clouds":
+                    weatherIcon.className = "la la-cloud la-5x";
+                    break;
+                case "Rain":
+                    weatherIcon.className = "la la-cloud-rain la-5x";
+                    break;
+                case "Clear":
+                    weatherIcon.className = "la la-sun la-5x";
+                    break;
+                case "Snow":
+                    weatherIcon.className = "la la-snowflake la-5x";
+                    break;
+                case "Thunderstorm":
+                    weatherIcon.className = "la la-bolt la-5x";
+                    break;
+                case "Haze":
+                case "Mist":
+                case "Fog":
+                case "Smoke":
+                case "Dust":
+                case "Sand":
+                case "Ash":
+                case "Squall":
+                case "Tornado":
+                    weatherIcon.className = "la la-smog la-5x";
+                    break;
+                default:
+                    weatherIcon.className = "la la-question la-5x";
+            }
+
+            weatherSection.style.display = 'block';
+            detailsSection.style.display = 'flex';
+
+            displayBusinessCards(city);
+            fetchForecast(city);
+        }
+
+        async function fetchForecast(city) {
+            const response = await fetch(forecastApiUrl + city + `&appid=${apiKey}`);
+            const data = await response.json();
+            displayForecast(data.list);
+        }
+
+        function displayForecast(forecastData) {
+            forecastDays.innerHTML = "";
+            const dailyForecast = forecastData.filter(item => item.dt_txt.includes("12:00:00")).slice(0, 5);
+            dailyForecast.forEach(day => {
+                const date = new Date(day.dt_txt);
+                const formattedDate = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                const temp = Math.round(day.main.temp) + "°C";
+                const iconClass = getWeatherIcon(day.weather[0].main);
+                const forecastDay = `
+                    <div class="forecast-day">
+                        <div class="forecast-date">${formattedDate}</div>
+                        <div class="forecast-temp">${temp}</div>
+                        <i class="${iconClass}"></i>
+                    </div>
+                `;
+                forecastDays.innerHTML += forecastDay;
+            });
+            forecastSection.style.display = 'block';
+        }
+
+        function getWeatherIcon(weather) {
+            switch (weather) {
+                case "Clouds":
+                    return "la la-cloud la-2x";
+                case "Rain":
+                    return "la la-cloud-rain la-2x";
+                case "Clear":
+                    return "la la-sun la-2x";
+                case "Snow":
+                    return "la la-snowflake la-2x";
+                case "Thunderstorm":
+                    return "la la-bolt la-2x";
+                case "Haze":
+                case "Mist":
+                case "Fog":
+                case "Smoke":
+                case "Dust":
+                case "Sand":
+                case "Ash":
+                case "Squall":
+                case "Tornado":
+                    return "la la-smog la-2x";
+                default:
+                    return "la la-question la-2x";
+            }
+        }
+
+        async function fetchCitySuggestions(query) {
+            const response = await fetch(citiesApiUrl + query);
+            const data = await response.json();
+            return data.list;
+        }
+
+        function clearWeather() {
+            weatherSection.style.display = 'none';
+            detailsSection.style.display = 'none';
+            forecastSection.style.display = 'none';
+            businessList.style.display = 'none';
+        }
+
+        async function showSuggestions(value) {
+            suggestions.innerHTML = "";
+            if (value.trim() === "") {
+                suggestions.style.display = 'none';
+                return;
+            }
+
+            const cities = await fetchCitySuggestions(value);
+            cities.forEach(city => {
+                const li = document.createElement('li');
+                li.textContent = city.name;
+                li.addEventListener('click', () => {
+                    searchBox.value = city.name;
+                    suggestions.style.display = 'none';
+                    checkWeather(city.name);
+                });
+                suggestions.appendChild(li);
+            });
+            suggestions.style.display = 'block';
+        }
+
+        function hideSuggestions() {
+            suggestions.style.display = 'none';
+        }
+
+        function displayBusinessCards(city) {
+            businessList.innerHTML = "";
+            const matchingBusinesses = businessData.filter(b => b.city.toLowerCase() === city.toLowerCase());
+            if (matchingBusinesses.length > 0) {
+                matchingBusinesses.forEach(business => {
+                    const businessCard = `
+                        <div class="business-card">
+                            <h5><a href="${business.website}" target="_blank">${business.name}</a></h5>
+                            <p>${business.city}</p>
+                            <p>${business.email}</p>
+                            <p>${business.discount}% off</p>
+                        </div>
+                    `;
+                    businessList.innerHTML += businessCard;
+                });
+                businessList.style.display = 'flex';
+            } else {
+                businessList.style.display = 'none';
+            }
+        }
+
+        document.getElementById('businessForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const businessName = document.getElementById('businessName').value;
+            const city = document.getElementById('city').value;
+            const email = document.getElementById('email').value;
+            const website = document.getElementById('website').value;
+            const discount = prompt("Enter discount for Habitat users:");
+            businessData.push({ name: businessName, city: city, email: email, website: website, discount: discount });
+            alert("Thank you for your submission!");
+            this.reset();
+            intakeForm.style.display = 'none';
+        });
+
+        listBusinessButton.addEventListener('click', () => {
+            intakeForm.style.display = intakeForm.style.display === 'none' ? 'block' : 'none';
+        });
+
+        searchButton.addEventListener('click', () => {
+            if (searchBox.value.trim() !== "") {
+                checkWeather(searchBox.value);
+                hideSuggestions();
+            } else {
+                clearWeather();
+            }
+        });
+
+        searchBox.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                if (searchBox.value.trim() !== "") {
+                    checkWeather(searchBox.value);
+                    hideSuggestions();
+                } else {
+                    clearWeather();
+                }
+            }
+        });
+
+        searchBox.addEventListener('input', () => {
+            if (searchBox.value.trim() === "") {
+                clearWeather();
+            } else {
+                showSuggestions(searchBox.value);
+            }
+        });
+
+        // Initially, no weather data is displayed until a city is searched
+        clearWeather();
+    </script>
+</body>
+</html>
