@@ -64,16 +64,16 @@
             <h4 class="forecast-title">5-Day Forecast</h4>
             <div id="forecastDays"></div>
         </div>
+
+        <div class="footer centered-footer">
+            <p>powered by <a href="https://shaunsaini.com/">L'Atelier</a></p>
+        </div>
     </div>
 
     <div class="business-list-wrapper">
         <div class="business-list" id="businessList">
             <!-- Business cards will be added here dynamically -->
         </div>
-    </div>
-
-    <div class="footer">
-        <p>powered by <a href="https://shaunsaini.com/">L'Atelier</a></p>
     </div>
 
     <script>
@@ -248,7 +248,7 @@
                         <div class="business-card">
                             <h5><a href="${business.website}" target="_blank">${business.name}</a></h5>
                             <p>${business.city}</p>
-                            <p>${business.email}</p>
+                            <p class="email"><a href="mailto:${business.email}">ask how</a></p>
                             <p>${business.discount}% off</p>
                         </div>
                     `;
@@ -310,3 +310,4 @@
     </script>
 </body>
 </html>
+
